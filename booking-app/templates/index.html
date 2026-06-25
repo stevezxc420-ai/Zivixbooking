@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Available Slots — BookingApp{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Book a Session</h1>
+    <p>Choose an available time slot below to schedule your meeting.</p>
+</section>
+
+{% if grouped_slots %}
+    <div class="slots-wrapper">
+        {% for date, slots in grouped_slots.items() %}
+            <div class="date-group">
+                <h2 class="date-heading">
+                    <span class="date-label">{{ date | format_date }}</span>
+                </h2>
+                <div class="slots-grid">
+                    {% for slot in slots %}
+                        <a href="{{ url_for('book', slot_id=slot['id']) }}" class="slot-card">
+                            <span class="slot-time">{{ slot['slot_time'] }}</span>
+                            <span class="slot-badge available">Available</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🗓️</div>
+        <h2>No Available Slots</h2>
+        <p>There are currently no available booking slots. Please check back later.</p>
+    </div>
+{% endif %}
+{% endblock %}

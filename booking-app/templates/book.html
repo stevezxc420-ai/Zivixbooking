@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Book a Slot — BookingApp{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('index') }}" class="back-link">← Back to slots</a>
+    <h1>Complete Your Booking</h1>
+    <p class="slot-info-line">
+        📅 <strong>{{ slot['slot_date'] | format_date }}</strong> &nbsp;·&nbsp;
+        🕐 <strong>{{ slot['slot_time'] }}</strong>
+    </p>
+</div>
+
+<div class="form-card">
+    <form method="POST" action="{{ url_for('book', slot_id=slot['id']) }}" novalidate>
+        <div class="form-group">
+            <label for="name">Full Name <span class="required">*</span></label>
+            <input type="text" id="name" name="name" placeholder="Jane Smith" required
+                   value="{{ request.form.get('name', '') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email Address <span class="required">*</span></label>
+            <input type="email" id="email" name="email" placeholder="jane@example.com" required
+                   value="{{ request.form.get('email', '') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="notes">Notes <span class="optional">(optional)</span></label>
+            <textarea id="notes" name="notes" rows="4"
+                      placeholder="Anything you'd like me to know before our meeting...">{{ request.form.get('notes', '') }}</textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full">
+            Confirm Booking →
+        </button>
+    </form>
+</div>
+{% endblock %}

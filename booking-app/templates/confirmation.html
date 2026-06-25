@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Booking Confirmed — BookingApp{% endblock %}
+
+{% block content %}
+<div class="confirmation-wrapper">
+    <div class="confirmation-card">
+        <div class="checkmark-circle">✓</div>
+        <h1>You're Booked!</h1>
+        <p class="confirmation-subtitle">Your slot has been reserved successfully.</p>
+
+        <div class="booking-details">
+            <div class="detail-row">
+                <span class="detail-icon">👤</span>
+                <div>
+                    <div class="detail-label">Name</div>
+                    <div class="detail-value">{{ name }}</div>
+                </div>
+            </div>
+            <div class="detail-row">
+                <span class="detail-icon">✉️</span>
+                <div>
+                    <div class="detail-label">Email</div>
+                    <div class="detail-value">{{ email }}</div>
+                </div>
+            </div>
+            {% if slot %}
+            <div class="detail-row">
+                <span class="detail-icon">📅</span>
+                <div>
+                    <div class="detail-label">Date</div>
+                    <div class="detail-value">{{ slot['slot_date'] | format_date }}</div>
+                </div>
+            </div>
+            <div class="detail-row">
+                <span class="detail-icon">🕐</span>
+                <div>
+                    <div class="detail-label">Time</div>
+                    <div class="detail-value">{{ slot['slot_time'] }}</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if meet_link %}
+        <div class="meet-section">
+            <h3>Join the Meeting</h3>
+            <p>Use the link below at your scheduled time:</p>
+            <a href="{{ meet_link }}" target="_blank" rel="noopener" class="meet-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Join Google Meet
+            </a>
+        </div>
+        {% endif %}
+
+        <a href="{{ url_for('index') }}" class="btn btn-outline">← Back to Home</a>
+    </div>
+</div>
+{% endblock %}
