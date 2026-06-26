@@ -1,35 +1,74 @@
 {% extends "base.html" %}
-{% block title %}Available Slots — BookingApp{% endblock %}
+{% block title %}Book a Session — BookingApp{% endblock %}
 
 {% block content %}
-<section class="hero">
-    <h1>Book a Session</h1>
-    <p>Choose an available time slot below to schedule your meeting.</p>
-</section>
-
-{% if grouped_slots %}
-    <div class="slots-wrapper">
-        {% for date, slots in grouped_slots.items() %}
-            <div class="date-group">
-                <h2 class="date-heading">
-                    <span class="date-label">{{ date | format_date }}</span>
-                </h2>
-                <div class="slots-grid">
-                    {% for slot in slots %}
-                        <a href="{{ url_for('book', slot_id=slot['id']) }}" class="slot-card">
-                            <span class="slot-time">{{ slot['slot_time'] }}</span>
-                            <span class="slot-badge available">Available</span>
-                        </a>
-                    {% endfor %}
-                </div>
+<div class="booking-layout">
+    <!-- Left: Info panel -->
+    <div class="booking-info">
+        <div class="booking-avatar">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <h1 class="booking-title">Book a Session</h1>
+        <div class="booking-meta">
+            <div class="meta-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <span>30 minutes</span>
             </div>
-        {% endfor %}
+            <div class="meta-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span>Google Meet</span>
+            </div>
+        </div>
+        <p class="booking-desc">Pick a date and time that works for you. I'll send you a confirmation with the meeting link.</p>
     </div>
-{% else %}
-    <div class="empty-state">
-        <div class="empty-icon">🗓️</div>
-        <h2>No Available Slots</h2>
-        <p>There are currently no available booking slots. Please check back later.</p>
+
+    <!-- Right: Calendar + Slots -->
+    <div class="calendar-panel">
+        <!-- Calendar header -->
+        <div class="cal-header">
+            <button class="cal-nav" id="prevMonth" aria-label="Previous month">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span class="cal-month-label" id="monthLabel"></span>
+            <button class="cal-nav" id="nextMonth" aria-label="Next month">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+        </div>
+
+        <!-- Day labels -->
+        <div class="cal-weekdays">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span>
+            <span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+
+        <!-- Calendar grid -->
+        <div class="cal-grid" id="calGrid"></div>
+
+        <!-- No slots message -->
+        <div class="no-slots-month" id="noSlotsMsg" style="display:none">
+            <p>No available slots this month. Try navigating to another month.</p>
+        </div>
     </div>
-{% endif %}
+
+    <!-- Time slots panel (shown when date selected) -->
+    <div class="slots-panel" id="slotsPanel" style="display:none">
+        <div class="slots-panel-header">
+            <button class="back-to-cal" id="backToCal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <div>
+                <div class="slots-date-label" id="slotDateLabel"></div>
+                <div class="slots-sub">Select a time</div>
+            </div>
+        </div>
+        <div class="slots-list" id="slotsList"></div>
+    </div>
+</div>
+
+<script>
+const SLOTS = {{ slots_json | safe }};
+</script>
 {% endblock %}

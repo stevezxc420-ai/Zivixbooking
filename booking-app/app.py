@@ -88,6 +88,7 @@ def login_required(f):
 
 @app.route("/")
 def index():
+    import json
     db = get_db()
     today = datetime.now().strftime("%Y-%m-%d")
     slots = db.execute(
@@ -95,14 +96,18 @@ def index():
         (today,)
     ).fetchall()
 
-    grouped = {}
+    slots_by_date = {}
     for slot in slots:
         date = slot["slot_date"]
-        if date not in grouped:
-            grouped[date] = []
-        grouped[date].append(slot)
+        if date not in slots_by_date:
+            slots_by_date[date] = []
+        slots_by_date[date].append({"id": slot["id"], "time": slot["slot_time"]})
 
-    return render_template("index.html", grouped_slots=grouped, meet_link=GOOGLE_MEET_LINK)
+    return render_template(
+        "index.html",
+        slots_json=json.dumps(slots_by_date),
+        meet_link=GOOGLE_MEET_LINK
+    )
 
 
 @app.route("/book/<int:slot_id>", methods=["GET", "POST"])
