@@ -491,14 +491,29 @@ textarea { resize: vertical; min-height: 100px; }
 .meet-section { margin-bottom: 1.75rem; }
 .meet-section h3 { font-size: .95rem; font-weight: 700; margin-bottom: .3rem; }
 .meet-section p  { color: var(--text-muted); font-size: .84rem; margin-bottom: .85rem; }
+
+.meet-actions { display: flex; gap: .6rem; align-items: stretch; }
+
 .meet-btn {
-    display: inline-flex; align-items: center; gap: .65rem;
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .65rem;
     background: var(--brand); color: var(--text-on-brand);
-    padding: .75rem 1.5rem; border-radius: var(--radius-sm);
+    padding: .75rem 1.25rem; border-radius: var(--radius-sm);
     text-decoration: none; font-weight: 700; font-size: .88rem;
     transition: background var(--ease), transform var(--ease), box-shadow var(--ease);
+    border: 1px solid var(--brand);
 }
-.meet-btn:hover { background: var(--brand-dim); transform: translateY(-1px); box-shadow: 0 4px 16px var(--brand-glow); }
+.meet-btn:hover { background: var(--brand-dim); border-color: var(--brand-dim); transform: translateY(-1px); box-shadow: 0 4px 16px var(--brand-glow); }
+
+.copy-link-btn {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .75rem 1rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong); background: var(--surface-2);
+    color: var(--text-muted); font-family: var(--font); font-size: .84rem;
+    font-weight: 600; cursor: pointer; white-space: nowrap;
+    transition: all var(--ease);
+}
+.copy-link-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-tint); }
+.copy-link-btn.copied { border-color: var(--success); color: var(--success); background: var(--success-bg); }
 
 /* ══════════════════════════════════════════════════════
    AUTH
