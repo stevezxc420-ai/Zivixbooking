@@ -1,63 +1,83 @@
 {% extends "base.html" %}
-{% block title %}Book a Session — BookingApp{% endblock %}
+{% block title %}Schedule a Session — ZIVIX{% endblock %}
 
 {% block content %}
 <div class="booking-layout">
-    <!-- Left: Info panel -->
+    <!-- ── Info panel ── -->
     <div class="booking-info">
+        <div class="booking-org">
+            <span class="org-badge">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                ZIVIX
+            </span>
+        </div>
+
         <div class="booking-avatar">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/>
                 <path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
             </svg>
         </div>
-        <h1 class="booking-title">Book a Session</h1>
+
+        <div>
+            <h1 class="booking-title">Book a Session</h1>
+        </div>
+
+        <div class="meta-divider"></div>
+
         <div class="booking-meta">
             <div class="meta-item">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
                 <span>30 minutes</span>
             </div>
             <div class="meta-item">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
                 <span>Google Meet</span>
             </div>
+            <div class="meta-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 8v4l2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <span>Confirm instantly</span>
+            </div>
         </div>
-        <p class="booking-desc">Pick a date and time that works for you. I'll send you a confirmation with the meeting link.</p>
+
+        <div class="meta-divider"></div>
+        <p class="booking-desc">Pick a date and available time. You'll get a meeting link on confirmation.</p>
     </div>
 
-    <!-- Right: Calendar + Slots -->
+    <!-- ── Calendar panel ── -->
     <div class="calendar-panel">
-        <!-- Calendar header -->
         <div class="cal-header">
             <button class="cal-nav" id="prevMonth" aria-label="Previous month">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
             <span class="cal-month-label" id="monthLabel"></span>
             <button class="cal-nav" id="nextMonth" aria-label="Next month">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
         </div>
-
-        <!-- Day labels -->
         <div class="cal-weekdays">
-            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span>
-            <span>Thu</span><span>Fri</span><span>Sat</span>
+            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span>
+            <span>Th</span><span>Fr</span><span>Sa</span>
         </div>
-
-        <!-- Calendar grid -->
         <div class="cal-grid" id="calGrid"></div>
-
-        <!-- No slots message -->
         <div class="no-slots-month" id="noSlotsMsg" style="display:none">
-            <p>No available slots this month. Try navigating to another month.</p>
+            No available slots this month.
         </div>
     </div>
 
-    <!-- Time slots panel (shown when date selected) -->
+    <!-- ── Time slots panel ── -->
     <div class="slots-panel" id="slotsPanel" style="display:none">
         <div class="slots-panel-header">
-            <button class="back-to-cal" id="backToCal">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <button class="back-to-cal" id="backToCal" aria-label="Back to calendar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
             <div>
                 <div class="slots-date-label" id="slotDateLabel"></div>
@@ -68,7 +88,5 @@
     </div>
 </div>
 
-<script>
-const SLOTS = {{ slots_json | safe }};
-</script>
+<script>const SLOTS = {{ slots_json | safe }};</script>
 {% endblock %}

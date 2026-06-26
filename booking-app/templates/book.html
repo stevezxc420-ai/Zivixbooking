@@ -1,38 +1,42 @@
 {% extends "base.html" %}
-{% block title %}Book a Slot — BookingApp{% endblock %}
+{% block title %}Confirm Booking — ZIVIX{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <a href="{{ url_for('index') }}" class="back-link">← Back to slots</a>
-    <h1>Complete Your Booking</h1>
-    <p class="slot-info-line">
-        📅 <strong>{{ slot['slot_date'] | format_date }}</strong> &nbsp;·&nbsp;
-        🕐 <strong>{{ slot['slot_time'] }}</strong>
-    </p>
+    <a href="{{ url_for('index') }}" class="back-link">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Back to calendar
+    </a>
+    <h1>Confirm Your Booking</h1>
+    <div class="slot-info-chip" style="margin-top:.75rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <strong>{{ slot['slot_date'] | format_date }}</strong>
+        <span class="chip-divider"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <strong>{{ slot['slot_time'] }}</strong>
+    </div>
 </div>
 
 <div class="form-card">
     <form method="POST" action="{{ url_for('book', slot_id=slot['id']) }}" novalidate>
         <div class="form-group">
             <label for="name">Full Name <span class="required">*</span></label>
-            <input type="text" id="name" name="name" placeholder="Jane Smith" required
+            <input type="text" id="name" name="name" placeholder="Your full name" required
                    value="{{ request.form.get('name', '') }}">
         </div>
-
         <div class="form-group">
             <label for="email">Email Address <span class="required">*</span></label>
-            <input type="email" id="email" name="email" placeholder="jane@example.com" required
+            <input type="email" id="email" name="email" placeholder="you@example.com" required
                    value="{{ request.form.get('email', '') }}">
         </div>
-
         <div class="form-group">
             <label for="notes">Notes <span class="optional">(optional)</span></label>
             <textarea id="notes" name="notes" rows="4"
-                      placeholder="Anything you'd like me to know before our meeting...">{{ request.form.get('notes', '') }}</textarea>
+                      placeholder="Anything you'd like to share ahead of the session...">{{ request.form.get('notes', '') }}</textarea>
         </div>
-
         <button type="submit" class="btn btn-primary btn-full">
-            Confirm Booking →
+            Confirm Booking
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
     </form>
 </div>

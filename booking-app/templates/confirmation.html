@@ -1,23 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Booking Confirmed — BookingApp{% endblock %}
+{% block title %}Booking Confirmed — ZIVIX{% endblock %}
 
 {% block content %}
 <div class="confirmation-wrapper">
     <div class="confirmation-card">
-        <div class="checkmark-circle">✓</div>
-        <h1>You're Booked!</h1>
-        <p class="confirmation-subtitle">Your slot has been reserved successfully.</p>
+        <div class="check-icon-wrap">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+
+        <h1>You're Confirmed</h1>
+        <p class="confirmation-subtitle">Your session has been booked successfully.</p>
 
         <div class="booking-details">
             <div class="detail-row">
-                <span class="detail-icon">👤</span>
+                <div class="detail-icon-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </div>
                 <div>
                     <div class="detail-label">Name</div>
                     <div class="detail-value">{{ name }}</div>
                 </div>
             </div>
             <div class="detail-row">
-                <span class="detail-icon">✉️</span>
+                <div class="detail-icon-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
                 <div>
                     <div class="detail-label">Email</div>
                     <div class="detail-value">{{ email }}</div>
@@ -25,14 +34,18 @@
             </div>
             {% if slot %}
             <div class="detail-row">
-                <span class="detail-icon">📅</span>
+                <div class="detail-icon-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </div>
                 <div>
                     <div class="detail-label">Date</div>
                     <div class="detail-value">{{ slot['slot_date'] | format_date }}</div>
                 </div>
             </div>
             <div class="detail-row">
-                <span class="detail-icon">🕐</span>
+                <div class="detail-icon-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </div>
                 <div>
                     <div class="detail-label">Time</div>
                     <div class="detail-value">{{ slot['slot_time'] }}</div>
@@ -43,10 +56,10 @@
 
         {% if meet_link %}
         <div class="meet-section">
-            <h3>Join the Meeting</h3>
-            <p>Use the link below at your scheduled time:</p>
+            <h3>Your Meeting Link</h3>
+            <p>Use this link at your scheduled time.</p>
             <a href="{{ meet_link }}" target="_blank" rel="noopener" class="meet-btn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                     <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 Join Google Meet
@@ -54,7 +67,10 @@
         </div>
         {% endif %}
 
-        <a href="{{ url_for('index') }}" class="btn btn-outline">← Back to Home</a>
+        <a href="{{ url_for('index') }}" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:.5rem">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Back to Calendar
+        </a>
     </div>
 </div>
 {% endblock %}
