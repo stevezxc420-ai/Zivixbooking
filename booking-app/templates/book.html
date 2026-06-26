@@ -8,12 +8,14 @@
         Back to calendar
     </a>
     <h1>Confirm Your Booking</h1>
-    <div class="slot-info-chip" style="margin-top:.75rem">
+    <div class="slot-info-chip" style="margin-top:.75rem" data-slot-utc="{{ slot_utc_iso }}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <strong>{{ slot['slot_date'] | format_date }}</strong>
+        <strong data-local-date>{{ slot['slot_date'] | format_date }}</strong>
         <span class="chip-divider"></span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <strong>{{ slot['slot_time'] }}</strong>
+        <strong data-local-time>{{ slot['slot_time'] }}</strong>
+        <span class="chip-divider"></span>
+        <span class="tz-badge" data-local-tz></span>
     </div>
 </div>
 

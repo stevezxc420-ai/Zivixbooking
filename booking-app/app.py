@@ -2,7 +2,7 @@ import json
 import os
 import sqlite3
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from functools import wraps
 from flask import (
@@ -13,7 +13,7 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "fallback-secret-key")
 
-DATABASE    = os.path.join(os.path.dirname(__file__), "bookings.db")
+DATABASE           = os.path.join(os.path.dirname(__file__), "bookings.db")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 GOOGLE_MEET_LINK   = os.environ.get("GOOGLE_MEET_LINK", "https://meet.google.com/your-link")
@@ -24,23 +24,24 @@ IST = ZoneInfo("Asia/Kolkata")
 
 # ── Timezone helpers ───────────────────────────────────────────────────────────
 
-def now_ist() -> datetime:
-    """Return the current moment as a timezone-aware IST datetime."""
-    return datetime.now(IST)
+def now_utc() -> datetime:
+    """Current moment as a UTC-aware datetime."""
+    return datetime.now(timezone.utc)
 
 
-def slot_to_ist(date_str: str, time_str: str) -> datetime:
+def slot_to_utc_iso(date_str: str, time_str: str) -> str:
     """
-    Combine a slot_date ('YYYY-MM-DD') and slot_time ('HH:MM') into a
-    timezone-aware IST datetime for comparison.
+    Convert an IST date ('YYYY-MM-DD') + time ('HH:MM') entered by the
+    admin into a UTC ISO-8601 string for storage.
     """
-    naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-    return naive.replace(tzinfo=IST)
+    naive  = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    ist_dt = naive.replace(tzinfo=IST)
+    return ist_dt.astimezone(timezone.utc).isoformat()
 
 
-def slot_is_past(date_str: str, time_str: str) -> bool:
-    """Return True if the slot's datetime has already passed in IST."""
-    return slot_to_ist(date_str, time_str) <= now_ist()
+def slot_is_past(utc_iso: str) -> bool:
+    """Return True if the stored UTC timestamp is in the past."""
+    return datetime.fromisoformat(utc_iso) <= now_utc()
 
 
 # ── DB helpers ─────────────────────────────────────────────────────────────────
@@ -63,22 +64,25 @@ def close_connection(exception):
 def init_db():
     with app.app_context():
         db = get_db()
+
+        # Create tables (idempotent)
         db.executescript("""
             CREATE TABLE IF NOT EXISTS slots (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                slot_date   TEXT NOT NULL,
-                slot_time   TEXT NOT NULL,
-                is_booked   INTEGER DEFAULT 0,
-                created_at  TEXT DEFAULT (datetime('now'))
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                slot_date         TEXT NOT NULL,
+                slot_time         TEXT NOT NULL,
+                is_booked         INTEGER DEFAULT 0,
+                created_at        TEXT DEFAULT (datetime('now')),
+                slot_datetime_utc TEXT
             );
 
             CREATE TABLE IF NOT EXISTS bookings (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                slot_id     INTEGER NOT NULL,
-                name        TEXT NOT NULL,
-                email       TEXT NOT NULL,
-                notes       TEXT,
-                booked_at   TEXT DEFAULT (datetime('now')),
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                slot_id   INTEGER NOT NULL,
+                name      TEXT NOT NULL,
+                email     TEXT NOT NULL,
+                notes     TEXT,
+                booked_at TEXT DEFAULT (datetime('now')),
                 FOREIGN KEY (slot_id) REFERENCES slots(id)
             );
 
@@ -87,6 +91,27 @@ def init_db():
                 value TEXT
             );
         """)
+
+        # Migration: add column if it doesn't exist yet (safe on re-run)
+        try:
+            db.execute("ALTER TABLE slots ADD COLUMN slot_datetime_utc TEXT")
+        except Exception:
+            pass  # column already present
+
+        # Backfill existing rows that have no UTC timestamp
+        existing = db.execute(
+            "SELECT id, slot_date, slot_time FROM slots WHERE slot_datetime_utc IS NULL"
+        ).fetchall()
+        for row in existing:
+            try:
+                utc_iso = slot_to_utc_iso(row["slot_date"], row["slot_time"])
+                db.execute(
+                    "UPDATE slots SET slot_datetime_utc = ? WHERE id = ?",
+                    (utc_iso, row["id"])
+                )
+            except Exception:
+                pass
+
         db.commit()
 
 
@@ -119,28 +144,24 @@ def login_required(f):
 @app.route("/")
 def index():
     db = get_db()
-    today_str = now_ist().strftime("%Y-%m-%d")
 
-    # Coarse SQL filter: only today-or-future, unbooked rows
+    # Fetch all unbooked slots (no date pre-filter; JS handles grouping by local date)
     rows = db.execute(
-        "SELECT * FROM slots WHERE is_booked = 0 AND slot_date >= ?"
-        " ORDER BY slot_date, slot_time",
-        (today_str,)
+        "SELECT id, slot_date, slot_time, slot_datetime_utc "
+        "FROM slots WHERE is_booked = 0 AND slot_datetime_utc IS NOT NULL "
+        "ORDER BY slot_datetime_utc"
     ).fetchall()
 
-    # Fine Python filter: drop slots whose exact datetime has already passed (IST)
-    slots_by_date: dict = {}
-    for slot in rows:
-        if slot_is_past(slot["slot_date"], slot["slot_time"]):
-            continue
-        date = slot["slot_date"]
-        if date not in slots_by_date:
-            slots_by_date[date] = []
-        slots_by_date[date].append({"id": slot["id"], "time": slot["slot_time"]})
+    # Only pass future slots; JS will group by visitor's local date
+    slots_list = [
+        {"id": slot["id"], "utc": slot["slot_datetime_utc"]}
+        for slot in rows
+        if not slot_is_past(slot["slot_datetime_utc"])
+    ]
 
     return render_template(
         "index.html",
-        slots_json=json.dumps(slots_by_date),
+        slots_json=json.dumps(slots_list),
         meet_link=GOOGLE_MEET_LINK
     )
 
@@ -152,12 +173,11 @@ def book(slot_id):
         "SELECT * FROM slots WHERE id = ? AND is_booked = 0", (slot_id,)
     ).fetchone()
 
-    if not slot:
+    if not slot or not slot["slot_datetime_utc"]:
         flash("This slot is no longer available.", "error")
         return redirect(url_for("index"))
 
-    # Guard: slot expired between page load and submission
-    if slot_is_past(slot["slot_date"], slot["slot_time"]):
+    if slot_is_past(slot["slot_datetime_utc"]):
         flash("This slot has expired.", "error")
         return redirect(url_for("index"))
 
@@ -168,10 +188,13 @@ def book(slot_id):
 
         if not name or not email:
             flash("Name and email are required.", "error")
-            return render_template("book.html", slot=slot)
+            return render_template(
+                "book.html", slot=slot,
+                slot_utc_iso=slot["slot_datetime_utc"]
+            )
 
-        # Second guard: re-check inside POST in case time passed during form fill
-        if slot_is_past(slot["slot_date"], slot["slot_time"]):
+        # Re-validate inside POST (time may have expired during form fill)
+        if slot_is_past(slot["slot_datetime_utc"]):
             flash("This slot has expired.", "error")
             return redirect(url_for("index"))
 
@@ -186,13 +209,16 @@ def book(slot_id):
             f"<b>New Booking!</b>\n"
             f"Name: {name}\n"
             f"Email: {email}\n"
-            f"Slot: {slot['slot_date']} at {slot['slot_time']} IST\n"
+            f"Slot (IST): {slot['slot_date']} at {slot['slot_time']}\n"
             f"Notes: {notes or 'None'}"
         )
 
         return redirect(url_for("confirmation", slot_id=slot_id, name=name, email=email))
 
-    return render_template("book.html", slot=slot)
+    return render_template(
+        "book.html", slot=slot,
+        slot_utc_iso=slot["slot_datetime_utc"]
+    )
 
 
 @app.route("/confirmation")
@@ -202,9 +228,12 @@ def confirmation():
     email   = request.args.get("email", "")
     db      = get_db()
     slot    = db.execute("SELECT * FROM slots WHERE id = ?", (slot_id,)).fetchone()
+    utc_iso = slot["slot_datetime_utc"] if slot and slot["slot_datetime_utc"] else ""
     return render_template(
         "confirmation.html",
-        slot=slot, name=name, email=email, meet_link=GOOGLE_MEET_LINK
+        slot=slot, name=name, email=email,
+        meet_link=GOOGLE_MEET_LINK,
+        slot_utc_iso=utc_iso
     )
 
 
@@ -233,8 +262,7 @@ def admin_logout():
 @app.route("/admin")
 @login_required
 def admin_dashboard():
-    db        = get_db()
-    today_str = now_ist().strftime("%Y-%m-%d")
+    db = get_db()
 
     slots = db.execute(
         "SELECT s.*, b.name, b.email, b.notes, b.booked_at "
@@ -242,10 +270,12 @@ def admin_dashboard():
         "ORDER BY s.slot_date DESC, s.slot_time DESC"
     ).fetchall()
 
-    # Upcoming = unbooked AND strictly in the future (IST-aware)
+    # Upcoming = unbooked AND future (UTC-based)
     upcoming = sum(
         1 for s in slots
-        if not s["is_booked"] and not slot_is_past(s["slot_date"], s["slot_time"])
+        if not s["is_booked"]
+        and s["slot_datetime_utc"]
+        and not slot_is_past(s["slot_datetime_utc"])
     )
     total_bookings = db.execute(
         "SELECT COUNT(*) as cnt FROM bookings"
@@ -272,13 +302,14 @@ def add_slot():
         flash("Date and time are required.", "error")
         return redirect(url_for("admin_dashboard"))
 
-    # Reject slots in the past (IST)
     try:
-        if slot_is_past(slot_date, slot_time):
-            flash("Cannot create a slot in the past.", "error")
-            return redirect(url_for("admin_dashboard"))
+        utc_iso = slot_to_utc_iso(slot_date, slot_time)
     except ValueError:
         flash("Invalid date or time format.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    if slot_is_past(utc_iso):
+        flash("Cannot create a slot in the past.", "error")
         return redirect(url_for("admin_dashboard"))
 
     existing = db.execute(
@@ -290,8 +321,8 @@ def add_slot():
         return redirect(url_for("admin_dashboard"))
 
     db.execute(
-        "INSERT INTO slots (slot_date, slot_time) VALUES (?, ?)",
-        (slot_date, slot_time)
+        "INSERT INTO slots (slot_date, slot_time, slot_datetime_utc) VALUES (?, ?, ?)",
+        (slot_date, slot_time, utc_iso)
     )
     db.commit()
     flash(f"Slot added: {slot_date} at {slot_time} IST", "success")
@@ -332,18 +363,19 @@ def edit_slot(slot_id):
         flash("Date and time are required.", "error")
         return redirect(url_for("admin_dashboard"))
 
-    # Reject edits that would put the slot in the past (IST)
     try:
-        if slot_is_past(new_date, new_time):
-            flash("Cannot create a slot in the past.", "error")
-            return redirect(url_for("admin_dashboard"))
+        utc_iso = slot_to_utc_iso(new_date, new_time)
     except ValueError:
         flash("Invalid date or time format.", "error")
         return redirect(url_for("admin_dashboard"))
 
+    if slot_is_past(utc_iso):
+        flash("Cannot create a slot in the past.", "error")
+        return redirect(url_for("admin_dashboard"))
+
     db.execute(
-        "UPDATE slots SET slot_date = ?, slot_time = ? WHERE id = ?",
-        (new_date, new_time, slot_id)
+        "UPDATE slots SET slot_date = ?, slot_time = ?, slot_datetime_utc = ? WHERE id = ?",
+        (new_date, new_time, utc_iso, slot_id)
     )
     db.commit()
     flash("Slot updated.", "success")

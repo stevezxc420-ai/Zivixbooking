@@ -25,6 +25,33 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 4000);
     });
 
+    /* ── Local-time display for book/confirmation pages ─── */
+    document.querySelectorAll('[data-slot-utc]').forEach(function (root) {
+        const utc = root.dataset.slotUtc;
+        if (!utc) return;
+        const userTz   = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const slotDate = new Date(utc);
+
+        const localDate = slotDate.toLocaleDateString('en-US', {
+            timeZone: userTz,
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        const localTime = slotDate.toLocaleTimeString('en-US', {
+            timeZone: userTz, hour: 'numeric', minute: '2-digit'
+        });
+        const tzShort = slotDate.toLocaleTimeString('en-US', {
+            timeZone: userTz, timeZoneName: 'short'
+        }).split(' ').pop();
+
+        const dateEl = root.querySelector('[data-local-date]');
+        const timeEl = root.querySelector('[data-local-time]');
+        const tzEl   = root.querySelector('[data-local-tz]');
+
+        if (dateEl) dateEl.textContent = localDate;
+        if (timeEl) timeEl.textContent = localTime;
+        if (tzEl)   tzEl.textContent   = tzShort;
+    });
+
     /* ── Calendar ───────────────────────────────────────── */
     if (typeof SLOTS === 'undefined') return;
 
@@ -37,13 +64,40 @@ document.addEventListener('DOMContentLoaded', function () {
     const slotsList  = document.getElementById('slotsList');
     const slotDateLb = document.getElementById('slotDateLabel');
     const backToCal  = document.getElementById('backToCal');
+    const tzLabelEl  = document.getElementById('tzLabel');
 
     if (!calGrid) return;
 
-    const today   = new Date();
-    today.setHours(0, 0, 0, 0);
-    let curYear   = today.getFullYear();
-    let curMonth  = today.getMonth();     // 0-indexed
+    /* Detect visitor timezone */
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    /* Display timezone label */
+    if (tzLabelEl) {
+        const tzShortSample = new Date().toLocaleTimeString('en-US', {
+            timeZone: userTz, timeZoneName: 'short'
+        }).split(' ').pop();
+        tzLabelEl.textContent = `Times shown in your local time (${tzShortSample})`;
+    }
+
+    /* Build local-date groups from UTC timestamps */
+    const slotsByDate = {};   /* { 'YYYY-MM-DD': [{id, localTime}] } */
+    SLOTS.forEach(function (slot) {
+        const d = new Date(slot.utc);
+        const localDateKey = d.toLocaleDateString('en-CA', { timeZone: userTz }); /* YYYY-MM-DD */
+        const localTime    = d.toLocaleTimeString('en-US', {
+            timeZone: userTz, hour: 'numeric', minute: '2-digit'
+        });
+        if (!slotsByDate[localDateKey]) slotsByDate[localDateKey] = [];
+        slotsByDate[localDateKey].push({ id: slot.id, localTime: localTime });
+    });
+
+    /* Local today at midnight (for comparison) */
+    const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: userTz });
+    const todayParts = todayKey.split('-').map(Number);
+    const localToday = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
+
+    let curYear  = localToday.getFullYear();
+    let curMonth = localToday.getMonth();
     let selectedDate = null;
 
     const MONTH_NAMES = [
@@ -53,20 +107,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
     function toKey(y, m, d) {
-        return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     }
 
     function friendlyDate(dateStr) {
         const [y, m, d] = dateStr.split('-').map(Number);
         const dt = new Date(y, m - 1, d);
-        return `${DAY_NAMES[dt.getDay()]}, ${MONTH_NAMES[m-1]} ${d}, ${y}`;
-    }
-
-    function fmt12(timeStr) {
-        const [h, min] = timeStr.split(':').map(Number);
-        const period = h >= 12 ? 'PM' : 'AM';
-        const hour12 = h % 12 || 12;
-        return `${hour12}:${String(min).padStart(2,'0')} ${period}`;
+        return `${DAY_NAMES[dt.getDay()]}, ${MONTH_NAMES[m - 1]} ${d}, ${y}`;
     }
 
     function renderCalendar(year, month) {
@@ -76,12 +123,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const firstDay  = new Date(year, month, 1).getDay();
         const daysInMon = new Date(year, month + 1, 0).getDate();
 
-        /* Disable prev if already at current month */
-        prevBtn.disabled = (year === today.getFullYear() && month === today.getMonth());
+        prevBtn.disabled = (year === localToday.getFullYear() && month === localToday.getMonth());
 
         let hasAnySlot = false;
 
-        /* Empty cells before first day */
         for (let i = 0; i < firstDay; i++) {
             const empty = document.createElement('div');
             empty.className = 'cal-cell empty';
@@ -95,10 +140,10 @@ document.addEventListener('DOMContentLoaded', function () {
             cell.textContent = d;
             cell.className   = 'cal-cell';
 
-            const isPast      = dt < today;
-            const hasSlots    = SLOTS[key] && SLOTS[key].length > 0;
-            const isToday     = (dt.getTime() === today.getTime());
-            const isSelected  = (key === selectedDate);
+            const isPast     = dt < localToday;
+            const hasSlots   = slotsByDate[key] && slotsByDate[key].length > 0;
+            const isToday    = (key === todayKey);
+            const isSelected = (key === selectedDate);
 
             if (isPast || !hasSlots) {
                 cell.className += ' disabled';
@@ -110,12 +155,14 @@ document.addEventListener('DOMContentLoaded', function () {
             if (isToday)    cell.className += ' today';
             if (isSelected) cell.className += ' selected';
 
-            cell.setAttribute('aria-label', `${friendlyDate(key)}${hasSlots ? ', ' + SLOTS[key].length + ' slots' : ''}`);
+            cell.setAttribute(
+                'aria-label',
+                `${friendlyDate(key)}${hasSlots ? ', ' + slotsByDate[key].length + ' slots' : ''}`
+            );
 
             cell.addEventListener('click', function () {
                 selectedDate = key;
                 showSlots(key);
-                /* Re-render to update selected highlight */
                 renderCalendar(curYear, curMonth);
             });
 
@@ -126,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function showSlots(dateKey) {
-        const slots = SLOTS[dateKey] || [];
+        const slots = slotsByDate[dateKey] || [];
         slotDateLb.textContent = friendlyDate(dateKey);
         slotsList.innerHTML = '';
 
@@ -134,11 +181,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const btn = document.createElement('a');
             btn.href      = `/book/${slot.id}`;
             btn.className = 'time-slot-btn';
-            btn.innerHTML = `<span class="slot-time-txt">${fmt12(slot.time)}</span><span class="slot-confirm-txt">Confirm →</span>`;
+            btn.innerHTML = `<span class="slot-time-txt">${slot.localTime}</span><span class="slot-confirm-txt">Confirm →</span>`;
             slotsList.appendChild(btn);
         });
 
-        /* On mobile: hide calendar, show panel */
         if (window.innerWidth < 900) {
             document.querySelector('.calendar-panel').style.display = 'none';
             slotsPanel.style.display = 'flex';
@@ -168,6 +214,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
     backToCal.addEventListener('click', hideSlots);
 
-    /* Initial render */
     renderCalendar(curYear, curMonth);
 });

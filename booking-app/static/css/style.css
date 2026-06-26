@@ -327,6 +327,8 @@ body {
     font-size: .88rem; font-weight: 800; color: var(--text); line-height: 1.3;
 }
 .slots-sub { font-size: .75rem; color: var(--text-muted); margin-top: .25rem; font-weight: 500; }
+.tz-label  { font-size: .72rem; color: var(--text-muted); padding: .35rem .5rem; margin: .25rem 0 .5rem; letter-spacing: .01em; }
+.tz-badge  { font-size: .72rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
 
 .slots-list {
     display: flex; flex-direction: column; gap: .5rem;
