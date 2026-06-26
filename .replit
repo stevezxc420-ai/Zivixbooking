@@ -21,8 +21,10 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-GOOGLE_MEET_LINK = "https://meet.google.com/your-meeting-link"
-ADMIN_PASSWORD = "admin123"
+GOOGLE_MEET_LINK = "meet.google.com/nmq-vgkr-wxd"
+ADMIN_PASSWORD = "8426010203"
+TELEGRAM_CHAT_ID = "6495864473"
+TELEGRAM_BOT_TOKEN = "8952008305:AAFa20JJPj5aJvItsW-VJodvieOXXVRzNMM"
 
 [nix]
 channel = "stable-25_05"
