@@ -9,28 +9,6 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd booking-app && python run.py"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [agent]
 stack = "PNPM_WORKSPACE"
@@ -43,10 +21,6 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-GOOGLE_MEET_LINK = "meet.google.com/nmq-vgkr-wxd"
-ADMIN_PASSWORD = "8426030201"
-TELEGRAM_CHAT_ID = "6495864473"
-TELEGRAM_BOT_TOKEN = "8952008305:AAFQMZ4wFChx4rkI8oUYtA4aieOz_kBC7v8p"
 
 [nix]
 channel = "stable-25_05"
