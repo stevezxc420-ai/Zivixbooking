@@ -20,27 +20,77 @@
 </div>
 
 <div class="admin-grid">
-    <!-- Add Slot -->
-    <div class="admin-panel">
-        <div class="panel-title">Add New Slot</div>
-        <form method="POST" action="{{ url_for('add_slot') }}" class="add-slot-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-group">
-                <label for="slot_date">Date</label>
-                <input type="date" id="slot_date" name="slot_date" required>
-            </div>
-            <div class="form-group">
-                <label for="slot_time">Time</label>
-                <input type="time" id="slot_time" name="slot_time" required>
-            </div>
-            <button type="submit" class="btn btn-primary btn-full">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-                Add Slot
-            </button>
-        </form>
+
+    <!-- ── Left column: two stacked panels ── -->
+    <div class="admin-left-col">
+
+        <!-- Recurring Schedule (primary) -->
+        <div class="admin-panel">
+            <div class="panel-title">Recurring Schedule</div>
+            <p class="panel-desc">Pick days and times — slots are created for the next 2 months.</p>
+            <form method="POST" action="{{ url_for('generate_slots') }}" id="recurring-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-group">
+                    <label>Days of the Week</label>
+                    <div class="day-picker">
+                        <button type="button" class="day-chip" data-value="0">Mon</button>
+                        <button type="button" class="day-chip" data-value="1">Tue</button>
+                        <button type="button" class="day-chip" data-value="2">Wed</button>
+                        <button type="button" class="day-chip" data-value="3">Thu</button>
+                        <button type="button" class="day-chip" data-value="4">Fri</button>
+                        <button type="button" class="day-chip" data-value="5">Sat</button>
+                        <button type="button" class="day-chip" data-value="6">Sun</button>
+                    </div>
+                    <div id="day-hidden-inputs"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Times <span class="optional">(IST)</span></label>
+                    <div id="time-entries">
+                        <div class="time-entry">
+                            <input type="time" name="times" required>
+                            <button type="button" class="remove-time-btn" aria-label="Remove" title="Remove" style="display:none">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="button" id="add-time-btn" class="btn btn-sm btn-outline" style="margin-top:.5rem;width:100%">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                        Add another time
+                    </button>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    Generate Slots
+                </button>
+            </form>
+        </div>
+
+        <!-- Add Single Slot (secondary) -->
+        <div class="admin-panel">
+            <div class="panel-title">Add Single Slot</div>
+            <form method="POST" action="{{ url_for('add_slot') }}" class="add-slot-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="slot_date">Date</label>
+                    <input type="date" id="slot_date" name="slot_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="slot_time">Time <span class="optional">(IST)</span></label>
+                    <input type="time" id="slot_time" name="slot_time" required>
+                </div>
+                <button type="submit" class="btn btn-outline btn-full">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                    Add Slot
+                </button>
+            </form>
+        </div>
+
     </div>
 
-    <!-- Slots table -->
+    <!-- ── Slots table ── -->
     <div class="admin-panel panel-wide">
         <div class="panel-title">All Slots</div>
         {% if slots %}
@@ -49,7 +99,7 @@
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Time</th>
+                        <th>Time (IST)</th>
                         <th>Status</th>
                         <th>Name</th>
                         <th>Email</th>
@@ -98,10 +148,11 @@
             <div class="empty-icon-wrap">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             </div>
-            <p>No slots yet. Add one using the form.</p>
+            <p>No slots yet. Use Recurring Schedule or Add Single Slot above.</p>
         </div>
         {% endif %}
     </div>
+
 </div>
 
 <!-- Edit Modal -->
@@ -115,7 +166,7 @@
                 <input type="date" name="slot_date" id="edit-date" required>
             </div>
             <div class="form-group">
-                <label>Time</label>
+                <label>Time <span class="optional">(IST)</span></label>
                 <input type="time" name="slot_time" id="edit-time" required>
             </div>
             <div class="modal-actions">
@@ -127,17 +178,86 @@
 </div>
 
 <script>
+/* ── Edit modal ─────────────────────────────── */
 function openEditModal(id, date, time) {
     document.getElementById('edit-form').action = '/admin/edit-slot/' + id;
-    document.getElementById('edit-date').value = date;
-    document.getElementById('edit-time').value = time;
+    document.getElementById('edit-date').value  = date;
+    document.getElementById('edit-time').value  = time;
     document.getElementById('edit-modal').style.display = 'flex';
 }
 function closeEditModal() {
     document.getElementById('edit-modal').style.display = 'none';
 }
-document.getElementById('edit-modal').addEventListener('click', function(e) {
+document.getElementById('edit-modal').addEventListener('click', function (e) {
     if (e.target === this) closeEditModal();
+});
+
+/* ── Day picker ─────────────────────────────── */
+var selectedDays = new Set();
+var hiddenContainer = document.getElementById('day-hidden-inputs');
+
+document.querySelectorAll('.day-chip').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var v = this.dataset.value;
+        if (selectedDays.has(v)) {
+            selectedDays.delete(v);
+            this.classList.remove('active');
+        } else {
+            selectedDays.add(v);
+            this.classList.add('active');
+        }
+        /* Sync hidden inputs */
+        hiddenContainer.innerHTML = '';
+        selectedDays.forEach(function (d) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'weekdays';
+            inp.value = d;
+            hiddenContainer.appendChild(inp);
+        });
+    });
+});
+
+/* ── Dynamic time entries ───────────────────── */
+function updateRemoveButtons() {
+    var entries = document.querySelectorAll('.time-entry');
+    entries.forEach(function (entry) {
+        entry.querySelector('.remove-time-btn').style.display =
+            entries.length > 1 ? 'flex' : 'none';
+    });
+}
+
+document.getElementById('add-time-btn').addEventListener('click', function () {
+    var entries = document.getElementById('time-entries');
+    if (entries.children.length >= 10) return;
+    var div = document.createElement('div');
+    div.className = 'time-entry';
+    div.innerHTML = '<input type="time" name="times" required>' +
+        '<button type="button" class="remove-time-btn" aria-label="Remove" title="Remove">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
+        '</button>';
+    div.querySelector('.remove-time-btn').addEventListener('click', function () {
+        div.remove();
+        updateRemoveButtons();
+    });
+    entries.appendChild(div);
+    updateRemoveButtons();
+    div.querySelector('input').focus();
+});
+
+document.querySelectorAll('.remove-time-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        this.closest('.time-entry').remove();
+        updateRemoveButtons();
+    });
+});
+
+/* Validate at least one day selected before submit */
+document.getElementById('recurring-form').addEventListener('submit', function (e) {
+    if (selectedDays.size === 0) {
+        e.preventDefault();
+        alert('Please select at least one day of the week.');
+    }
 });
 </script>
 {% endblock %}

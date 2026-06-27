@@ -587,9 +587,37 @@ textarea { resize: vertical; min-height: 100px; }
 }
 
 .admin-grid {
-    display: grid; grid-template-columns: 300px 1fr;
+    display: grid; grid-template-columns: 310px 1fr;
     gap: 1.5rem; align-items: start;
 }
+.admin-left-col { display: flex; flex-direction: column; gap: 1.5rem; }
+.panel-desc { font-size: .8rem; color: var(--text-muted); margin: -.5rem 0 1rem; line-height: 1.5; }
+
+/* ── Day picker ───────────────────────────────────────── */
+.day-picker { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .25rem; }
+.day-chip {
+    padding: .35rem .65rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong); background: var(--surface-2);
+    color: var(--text-muted); font-family: var(--font); font-size: .78rem;
+    font-weight: 700; cursor: pointer; letter-spacing: .04em;
+    transition: all var(--ease);
+}
+.day-chip:hover  { border-color: var(--brand); color: var(--brand); }
+.day-chip.active { background: var(--brand); border-color: var(--brand); color: var(--text-on-brand); }
+
+/* ── Time entries ─────────────────────────────────────── */
+.time-entry {
+    display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem;
+}
+.time-entry input[type="time"] { flex: 1; }
+.remove-time-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; flex-shrink: 0;
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text-muted); cursor: pointer;
+    transition: all var(--ease);
+}
+.remove-time-btn:hover { border-color: #e55; color: #e55; background: rgba(220,50,50,.08); }
 .admin-panel {
     background: var(--surface); border-radius: var(--radius);
     border: 1px solid var(--border); box-shadow: var(--shadow);

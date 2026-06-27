@@ -96,6 +96,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const todayParts = todayKey.split('-').map(Number);
     const localToday = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
 
+    /* 2-month navigation cap */
+    const _cap = new Date(localToday.getFullYear(), localToday.getMonth() + 2, 1);
+    const maxYear  = _cap.getFullYear();
+    const maxMonth = _cap.getMonth();   /* 0-indexed: first month that is OFF-LIMITS */
+
     let curYear  = localToday.getFullYear();
     let curMonth = localToday.getMonth();
     let selectedDate = null;
@@ -124,6 +129,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const daysInMon = new Date(year, month + 1, 0).getDate();
 
         prevBtn.disabled = (year === localToday.getFullYear() && month === localToday.getMonth());
+        nextBtn.disabled = (year > maxYear) || (year === maxYear && month >= maxMonth);
 
         let hasAnySlot = false;
 
@@ -207,8 +213,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     nextBtn.addEventListener('click', function () {
-        if (curMonth === 11) { curMonth = 0; curYear++; }
-        else curMonth++;
+        let ny = curYear, nm = curMonth + 1;
+        if (nm > 11) { nm = 0; ny++; }
+        if (ny > maxYear || (ny === maxYear && nm >= maxMonth)) return;
+        curYear = ny; curMonth = nm;
         renderCalendar(curYear, curMonth);
     });
 

@@ -6,7 +6,8 @@ import logging
 import secrets
 import sqlite3
 import requests
-from datetime import datetime, timezone, timedelta
+from calendar import monthrange as cal_monthrange
+from datetime import date, datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from functools import wraps
 from flask import (
@@ -159,6 +160,20 @@ def slot_is_past(utc_iso: str) -> bool:
     return datetime.fromisoformat(utc_iso) <= now_utc()
 
 
+def two_month_cutoff_utc() -> datetime:
+    """End-of-day UTC datetime exactly 2 months from today (IST calendar)."""
+    today_ist = now_utc().astimezone(IST).date()
+    m = today_ist.month + 2
+    y = today_ist.year
+    if m > 12:
+        y += 1
+        m -= 12
+    last_valid_day = cal_monthrange(y, m)[1]
+    cutoff_day = min(today_ist.day, last_valid_day)
+    cutoff_naive = datetime(y, m, cutoff_day, 23, 59, 59)
+    return cutoff_naive.replace(tzinfo=IST).astimezone(timezone.utc)
+
+
 # ── DB helpers ─────────────────────────────────────────────────────────────────
 
 def get_db():
@@ -246,8 +261,9 @@ def login_required(f):
 
 @app.route("/")
 def index():
-    db = get_db()
-    rows = db.execute(
+    db      = get_db()
+    cutoff  = two_month_cutoff_utc()
+    rows    = db.execute(
         "SELECT id, slot_date, slot_time, slot_datetime_utc "
         "FROM slots WHERE is_booked = 0 AND slot_datetime_utc IS NOT NULL "
         "ORDER BY slot_datetime_utc"
@@ -256,6 +272,7 @@ def index():
         {"id": slot["id"], "utc": slot["slot_datetime_utc"]}
         for slot in rows
         if not slot_is_past(slot["slot_datetime_utc"])
+        and datetime.fromisoformat(slot["slot_datetime_utc"]) <= cutoff
     ]
     return render_template("index.html", slots_json=json.dumps(slots_list), meet_link=GOOGLE_MEET_LINK)
 
@@ -435,6 +452,92 @@ def add_slot():
     db.commit()
     logger.info("Admin added slot: %s %s", slot_date, slot_time)
     flash(f"Slot added: {slot_date} at {slot_time} IST", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/generate-slots", methods=["POST"])
+@login_required
+def generate_slots():
+    _validate_csrf()
+    db = get_db()
+
+    # ── Validate weekdays (0=Mon … 6=Sun) ─────────────────────────────────
+    weekdays: set[int] = set()
+    for raw in request.form.getlist("weekdays"):
+        try:
+            d = int(raw)
+            if 0 <= d <= 6:
+                weekdays.add(d)
+        except ValueError:
+            pass
+
+    if not weekdays:
+        flash("Select at least one day of the week.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    # ── Validate times (HH:MM, max 10) ────────────────────────────────────
+    times: list[str] = []
+    for raw in request.form.getlist("times")[:10]:
+        t = raw.strip()
+        try:
+            datetime.strptime(t, "%H:%M")
+            if t not in times:
+                times.append(t)
+        except ValueError:
+            pass
+
+    if not times:
+        flash("Add at least one valid time.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    # ── Generate dates in the 2-month window ──────────────────────────────
+    today_ist    = now_utc().astimezone(IST).date()
+    cutoff_ist   = two_month_cutoff_utc().astimezone(IST).date()
+    created = skipped = 0
+    current = today_ist
+
+    while current <= cutoff_ist:
+        if current.weekday() in weekdays:
+            date_str = current.strftime("%Y-%m-%d")
+            for time_str in times:
+                try:
+                    utc_iso = slot_to_utc_iso(date_str, time_str)
+                except ValueError:
+                    skipped += 1
+                    continue
+
+                if slot_is_past(utc_iso):
+                    skipped += 1
+                    continue
+
+                exists = db.execute(
+                    "SELECT id FROM slots WHERE slot_date = ? AND slot_time = ?",
+                    (date_str, time_str),
+                ).fetchone()
+                if exists:
+                    skipped += 1
+                else:
+                    db.execute(
+                        "INSERT INTO slots (slot_date, slot_time, slot_datetime_utc) VALUES (?, ?, ?)",
+                        (date_str, time_str, utc_iso),
+                    )
+                    created += 1
+
+        current += timedelta(days=1)
+
+    if created:
+        db.commit()
+
+    logger.info("Admin generated %d slots, %d skipped", created, skipped)
+
+    if created:
+        msg = f"{created} slot{'s' if created != 1 else ''} created"
+        if skipped:
+            msg += f", {skipped} already existed or in the past"
+        flash(msg + ".", "success")
+    else:
+        flash("No new slots created — all selected times already exist or are in the past.", "error")
+
     return redirect(url_for("admin_dashboard"))
 
 
