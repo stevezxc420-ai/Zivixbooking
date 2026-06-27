@@ -24,6 +24,7 @@
     <div class="admin-panel">
         <div class="panel-title">Add New Slot</div>
         <form method="POST" action="{{ url_for('add_slot') }}" class="add-slot-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="slot_date">Date</label>
                 <input type="date" id="slot_date" name="slot_date" required>
@@ -80,6 +81,7 @@
                             <form method="POST" action="{{ url_for('delete_slot', slot_id=slot['id']) }}"
                                   style="display:inline"
                                   onsubmit="return confirm('Delete this slot?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                             </form>
                             {% else %}
@@ -107,6 +109,7 @@
     <div class="modal-card">
         <div class="modal-title">Edit Slot</div>
         <form method="POST" id="edit-form" action="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label>Date</label>
                 <input type="date" name="slot_date" id="edit-date" required>
