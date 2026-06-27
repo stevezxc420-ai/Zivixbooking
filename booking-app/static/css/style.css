@@ -439,6 +439,16 @@ textarea { resize: vertical; min-height: 100px; }
     background: var(--brand-dim); border-color: var(--brand-dim);
     transform: translateY(-1px); box-shadow: 0 4px 16px var(--brand-glow);
 }
+.btn-primary:disabled {
+    opacity: .75; cursor: not-allowed; transform: none; box-shadow: none;
+}
+@keyframes btn-spin {
+    to { transform: rotate(360deg); }
+}
+.btn-spinner {
+    animation: btn-spin .8s linear infinite;
+    flex-shrink: 0;
+}
 .btn-outline {
     background: transparent; color: var(--text-muted);
     border-color: var(--border-strong);

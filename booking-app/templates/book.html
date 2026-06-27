@@ -36,10 +36,41 @@
             <textarea id="notes" name="notes" rows="4"
                       placeholder="Anything you'd like to share ahead of the session...">{{ request.form.get('notes', '') }}</textarea>
         </div>
-        <button type="submit" class="btn btn-primary btn-full">
-            Confirm Booking
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <button type="submit" class="btn btn-primary btn-full" id="bookSubmitBtn">
+            <span id="bookBtnLabel">Confirm Booking</span>
+            <svg id="bookBtnArrow" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg id="bookBtnSpinner" class="btn-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" style="display:none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="40 20" stroke-linecap="round"/>
+            </svg>
         </button>
     </form>
 </div>
+
+<script>
+(function () {
+    var form = document.querySelector('.form-card form');
+    var btn  = document.getElementById('bookSubmitBtn');
+    var lbl  = document.getElementById('bookBtnLabel');
+    var arr  = document.getElementById('bookBtnArrow');
+    var spin = document.getElementById('bookBtnSpinner');
+    var submitted = false;
+
+    form.addEventListener('submit', function (e) {
+        if (submitted) { e.preventDefault(); return; }
+
+        /* Basic HTML5 validity check so we don't animate on empty fields */
+        if (!form.checkValidity()) return;
+
+        e.preventDefault();
+        submitted = true;
+
+        btn.disabled = true;
+        lbl.textContent = 'Booking\u2026';
+        arr.style.display = 'none';
+        spin.style.display = 'block';
+
+        setTimeout(function () { form.submit(); }, 1500);
+    });
+})();
+</script>
 {% endblock %}

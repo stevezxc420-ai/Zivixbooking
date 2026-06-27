@@ -193,17 +193,43 @@ def book(slot_id):
                 slot_utc_iso=slot["slot_datetime_utc"]
             )
 
-        # Re-validate inside POST (time may have expired during form fill)
-        if slot_is_past(slot["slot_datetime_utc"]):
-            flash("This slot has expired.", "error")
-            return redirect(url_for("index"))
+        # ── Atomic transaction: lock → re-check → insert ───────────────────
+        # BEGIN IMMEDIATE acquires a write lock immediately so no two requests
+        # can race through this block concurrently.
+        db.isolation_level = None          # switch to manual transaction mode
+        try:
+            db.execute("BEGIN IMMEDIATE")
 
-        db.execute(
-            "INSERT INTO bookings (slot_id, name, email, notes) VALUES (?, ?, ?, ?)",
-            (slot_id, name, email, notes)
-        )
-        db.execute("UPDATE slots SET is_booked = 1 WHERE id = ?", (slot_id,))
-        db.commit()
+            # Re-fetch inside the lock — authoritative availability check
+            locked_slot = db.execute(
+                "SELECT * FROM slots WHERE id = ? AND is_booked = 0", (slot_id,)
+            ).fetchone()
+
+            if not locked_slot or not locked_slot["slot_datetime_utc"]:
+                db.execute("ROLLBACK")
+                flash("This slot is no longer available.", "error")
+                return redirect(url_for("index"))
+
+            if slot_is_past(locked_slot["slot_datetime_utc"]):
+                db.execute("ROLLBACK")
+                flash("This slot has expired.", "error")
+                return redirect(url_for("index"))
+
+            db.execute(
+                "INSERT INTO bookings (slot_id, name, email, notes) VALUES (?, ?, ?, ?)",
+                (slot_id, name, email, notes)
+            )
+            db.execute("UPDATE slots SET is_booked = 1 WHERE id = ?", (slot_id,))
+            db.execute("COMMIT")
+
+        except Exception:
+            try:
+                db.execute("ROLLBACK")
+            except Exception:
+                pass
+            flash("Something went wrong while saving your booking. Please try again.", "error")
+            return redirect(url_for("index"))
+        # ──────────────────────────────────────────────────────────────────────
 
         send_telegram_notification(
             f"<b>New Booking!</b>\n"
