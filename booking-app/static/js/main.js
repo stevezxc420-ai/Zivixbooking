@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const btn = document.createElement('a');
             btn.href      = `/book/${slot.id}`;
             btn.className = 'time-slot-btn';
-            btn.innerHTML = `<span class="slot-time-txt">${slot.localTime}</span><span class="slot-confirm-txt">Confirm →</span>`;
+            btn.innerHTML = `<span class="slot-time-txt">${slot.localTime}</span><span class="slot-select-pill">Select</span>`;
             slotsList.appendChild(btn);
         });
 

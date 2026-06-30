@@ -340,24 +340,35 @@ body {
 
 .time-slot-btn {
     display: flex; align-items: center; justify-content: space-between;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-xs);
-    padding: .7rem 1rem; text-decoration: none;
-    transition: all var(--ease); background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: .95rem 1.1rem; text-decoration: none;
+    background: transparent;
+    transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+    gap: .6rem;
 }
 .time-slot-btn:hover {
-    background: var(--brand); border-color: var(--brand);
-    transform: translateX(3px);
+    border-color: var(--brand);
+    background: var(--brand-tint);
+    box-shadow: 0 0 0 3px var(--brand-glow);
 }
-.time-slot-btn:hover .slot-time-txt,
-.time-slot-btn:hover .slot-arrow { color: var(--text-on-brand); }
 .slot-time-txt {
-    font-size: .88rem; font-weight: 700; color: var(--text);
-    transition: color var(--ease);
+    font-size: .95rem; font-weight: 700; color: var(--text);
+    letter-spacing: .01em; flex: 1;
+    transition: color .16s ease;
 }
-.slot-arrow {
-    color: var(--text-muted); transition: color var(--ease);
-    display: flex; align-items: center;
+.time-slot-btn:hover .slot-time-txt { color: var(--brand); }
+.slot-select-pill {
+    display: inline-flex; align-items: center; gap: .3rem;
+    background: var(--brand); color: var(--text-on-brand);
+    font-size: .7rem; font-weight: 800; letter-spacing: .05em;
+    text-transform: uppercase; padding: .28rem .7rem;
+    border-radius: 99px; white-space: nowrap;
+    opacity: 0; transform: translateX(8px);
+    transition: opacity .16s ease, transform .16s ease;
+}
+.time-slot-btn:hover .slot-select-pill {
+    opacity: 1; transform: translateX(0);
 }
 
 /* ══════════════════════════════════════════════════════
