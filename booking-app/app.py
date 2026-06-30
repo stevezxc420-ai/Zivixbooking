@@ -7,6 +7,9 @@ import secrets
 import sqlite3
 import requests
 from calendar import monthrange as cal_monthrange
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from datetime import date, datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from functools import wraps
@@ -43,11 +46,24 @@ app.config.update(
 DATABASE           = os.path.join(os.path.dirname(__file__), "bookings.db")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
-GOOGLE_MEET_LINK   = os.environ.get("GOOGLE_MEET_LINK", "https://meet.google.com/your-link")
 ADMIN_PASSWORD     = os.environ.get("ADMIN_PASSWORD", "")
+
+GOOGLE_CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REFRESH_TOKEN = os.environ.get("GOOGLE_REFRESH_TOKEN", "")
+GOOGLE_CALENDAR_ID   = os.environ.get("GOOGLE_CALENDAR_ID", "")
 
 if not ADMIN_PASSWORD:
     logger.critical("ADMIN_PASSWORD is not set — admin login will be refused until it is configured.")
+
+_gcal_missing = [k for k, v in {
+    "GOOGLE_CLIENT_ID": GOOGLE_CLIENT_ID,
+    "GOOGLE_CLIENT_SECRET": GOOGLE_CLIENT_SECRET,
+    "GOOGLE_REFRESH_TOKEN": GOOGLE_REFRESH_TOKEN,
+    "GOOGLE_CALENDAR_ID": GOOGLE_CALENDAR_ID,
+}.items() if not v]
+if _gcal_missing:
+    logger.critical("Google Calendar credentials missing: %s — Meet links will not be generated.", _gcal_missing)
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -221,6 +237,14 @@ def init_db():
             db.execute("ALTER TABLE slots ADD COLUMN slot_datetime_utc TEXT")
         except Exception:
             pass
+        try:
+            db.execute("ALTER TABLE bookings ADD COLUMN gcal_event_id TEXT")
+        except Exception:
+            pass
+        try:
+            db.execute("ALTER TABLE bookings ADD COLUMN meet_link TEXT")
+        except Exception:
+            pass
         existing = db.execute(
             "SELECT id, slot_date, slot_time FROM slots WHERE slot_datetime_utc IS NULL"
         ).fetchall()
@@ -231,6 +255,74 @@ def init_db():
             except Exception:
                 pass
         db.commit()
+
+
+# ── Google Calendar helpers ────────────────────────────────────────────────────
+
+def get_calendar_service():
+    """Return an authenticated Google Calendar API service using stored OAuth credentials."""
+    creds = Credentials(
+        token=None,
+        refresh_token=GOOGLE_REFRESH_TOKEN,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        scopes=["https://www.googleapis.com/auth/calendar.events"],
+    )
+    return build("calendar", "v3", credentials=creds, cache_discovery=False)
+
+
+def create_calendar_event(slot_date: str, slot_time: str, name: str, email: str) -> dict:
+    """
+    Create a Google Calendar event with a unique Meet conference link.
+
+    Returns a dict with 'event_id' and 'meet_link'.
+    Raises an exception if the API call fails or no Meet link is returned,
+    so the caller can roll back the booking transaction.
+    """
+    naive_start = datetime.strptime(f"{slot_date} {slot_time}", "%Y-%m-%d %H:%M")
+    ist_start   = naive_start.replace(tzinfo=IST)
+    ist_end     = ist_start + timedelta(hours=1)
+
+    event_body = {
+        "summary": f"Consultation – {name}",
+        "description": f"Booking confirmed for {name} ({email}).",
+        "start": {
+            "dateTime": ist_start.isoformat(),
+            "timeZone": "Asia/Kolkata",
+        },
+        "end": {
+            "dateTime": ist_end.isoformat(),
+            "timeZone": "Asia/Kolkata",
+        },
+        "attendees": [{"email": email}],
+        "conferenceData": {
+            "createRequest": {
+                "requestId": f"zivix-{slot_date}-{slot_time.replace(':', '')}-{secrets.token_hex(4)}",
+                "conferenceSolutionKey": {"type": "hangoutsMeet"},
+            }
+        },
+    }
+
+    service   = get_calendar_service()
+    event     = service.events().insert(
+        calendarId=GOOGLE_CALENDAR_ID,
+        body=event_body,
+        conferenceDataVersion=1,
+        sendUpdates="all",
+    ).execute()
+
+    meet_link = event.get("hangoutLink", "")
+    event_id  = event.get("id", "")
+
+    if not meet_link:
+        raise ValueError(
+            f"Calendar event {event_id!r} created but Google returned no Meet link. "
+            "Ensure the account has Google Meet enabled."
+        )
+
+    logger.info("Calendar event created: event_id=%s meet_link=%s", event_id, meet_link)
+    return {"event_id": event_id, "meet_link": meet_link}
 
 
 # ── Misc helpers ───────────────────────────────────────────────────────────────
@@ -274,7 +366,7 @@ def index():
         if not slot_is_past(slot["slot_datetime_utc"])
         and datetime.fromisoformat(slot["slot_datetime_utc"]) <= cutoff
     ]
-    return render_template("index.html", slots_json=json.dumps(slots_list), meet_link=GOOGLE_MEET_LINK)
+    return render_template("index.html", slots_json=json.dumps(slots_list))
 
 
 @app.route("/book/<int:slot_id>", methods=["GET", "POST"])
@@ -305,7 +397,9 @@ def book(slot_id):
                 flash(err, "error")
             return render_template("book.html", slot=slot, slot_utc_iso=slot["slot_datetime_utc"])
 
-        # ── Atomic transaction: lock → re-check → insert ───────────────────
+        # ── Atomic transaction: lock → re-check → calendar → insert ───────────
+        meet_link     = ""
+        gcal_event_id = ""
         db.isolation_level = None
         try:
             db.execute("BEGIN IMMEDIATE")
@@ -324,9 +418,22 @@ def book(slot_id):
                 flash("This slot has expired.", "error")
                 return redirect(url_for("index"))
 
+            # Create Google Calendar event with Meet link before committing.
+            # If this fails the ROLLBACK below ensures no booking is stored.
+            try:
+                cal           = create_calendar_event(slot["slot_date"], slot["slot_time"], name, email)
+                meet_link     = cal["meet_link"]
+                gcal_event_id = cal["event_id"]
+            except Exception as cal_exc:
+                db.execute("ROLLBACK")
+                logger.error("Calendar event creation failed for slot %s: %s", slot_id, cal_exc)
+                flash("Could not create your meeting link. Please try again.", "error")
+                return redirect(url_for("index"))
+
             db.execute(
-                "INSERT INTO bookings (slot_id, name, email, notes) VALUES (?, ?, ?, ?)",
-                (slot_id, name, email, notes),
+                "INSERT INTO bookings (slot_id, name, email, notes, gcal_event_id, meet_link)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (slot_id, name, email, notes, gcal_event_id, meet_link),
             )
             db.execute("UPDATE slots SET is_booked = 1 WHERE id = ?", (slot_id,))
             db.execute("COMMIT")
@@ -341,12 +448,13 @@ def book(slot_id):
             return redirect(url_for("index"))
         # ──────────────────────────────────────────────────────────────────────
 
-        logger.info("Booking confirmed: slot=%s name=%s email=%s", slot_id, name, email)
+        logger.info("Booking confirmed: slot=%s name=%s email=%s meet_link=%s", slot_id, name, email, meet_link)
         send_telegram_notification(
             f"<b>New Booking!</b>\n"
             f"Name: {name}\n"
             f"Email: {email}\n"
             f"Slot (IST): {slot['slot_date']} at {slot['slot_time']}\n"
+            f"Meet Link: {meet_link}\n"
             f"Notes: {notes or 'None'}"
         )
         return redirect(url_for("confirmation", slot_id=slot_id, name=name, email=email))
@@ -362,10 +470,15 @@ def confirmation():
     db      = get_db()
     slot    = db.execute("SELECT * FROM slots WHERE id = ?", (slot_id,)).fetchone()
     utc_iso = slot["slot_datetime_utc"] if slot and slot["slot_datetime_utc"] else ""
+    booking = db.execute(
+        "SELECT meet_link FROM bookings WHERE slot_id = ? ORDER BY id DESC LIMIT 1",
+        (slot_id,),
+    ).fetchone()
+    meet_link = booking["meet_link"] if booking and booking["meet_link"] else ""
     return render_template(
         "confirmation.html",
         slot=slot, name=name, email=email,
-        meet_link=GOOGLE_MEET_LINK, slot_utc_iso=utc_iso,
+        meet_link=meet_link, slot_utc_iso=utc_iso,
     )
 
 
